@@ -10,9 +10,6 @@ screen = pygame.display.set_mode((400, 700))
 pygame.display.set_caption("Orbital Strike")
 background = pygame.image.load("Assets/space.png").convert()
 background = pygame.transform.scale(background, (400,700))
-pygame.mixer.music.load("Assets/spacesong.mp3")
-pygame.mixer.music.play(-1)
-pygame.mixer.music.set_volume(0.5)
 
 running = True
 class Player:
@@ -138,21 +135,46 @@ class PowerUps:
         screen.blit(self.image, (self.x, self.y))
 
 class Menu():
-    def __init__(self, x,y ,width,height,text):
+    def __init__(self, x,y ,width,height,text, image_path = None):
         self.rect = pygame.Rect(x, y , width, height)
         self.text = text
         self.font = pygame.font.SysFont("Arial", 24)
+
+        if image_path is not None:
+            self.image = pygame.image.load(image_path)
+            self.image = pygame.transform.scale(self.image,(width,height))
+        else:
+            self.image = None
+            
     def draw(self,screen):
         
-        self.button = pygame.draw.rect(screen, (255,0,0), self.rect)
-        self.text_button = self.font.render(self.text, True, (255,255,255))
-        text_rect = self.text_button.get_rect(center = self.rect.center)
-        screen.blit(self.text_button, text_rect)
+        if self.image is not None:
+            screen.blit(self.image, (self.rect.x, self.rect.y))
+        else:
+            self.button = pygame.draw.rect(screen, (255,0,0), self.rect)
+            self.text_button = self.font.render(self.text, True, (255,255,255))
+            text_rect = self.text_button.get_rect(center = self.rect.center)
+            screen.blit(self.text_button, text_rect)
+
+
 
     def is_clicked(self, mouse_pos):
         return self.rect.collidepoint(mouse_pos)
 
+class Sound:
+    def __init__(self):
+        pygame.mixer.music.load("Assets/spacesong.mp3")
+        pygame.mixer.music.play(-1)
+        pygame.mixer.music.set_volume(0.5)
 
+    def mute(self):
+        pygame.mixer.music.pause()
+
+
+    def unmute(self):
+        pygame.mixer.music.unpause()
+
+sound = Sound()
 player = Player()
 villan = Villan()
 laser = Laser()
@@ -167,6 +189,10 @@ quit_button = Menu(120, 400, 150, 50, "Quit")
 play_again_button = Menu(120, 500, 150, 50 , "Play Again")
 back_to_menu = Menu(120, 600, 150, 50, "Back To Menu")
 continue_button = Menu(120, 400, 150, 50 , "Continue")
+pause_button = Menu(350,25, 30, 30, "", "Assets/pause.png" )
+sound_button = Menu(310, 25, 30, 30, "", "Assets/musicOn.png")
+
+
 
 game_over_font = pygame.font.SysFont("impact", 50)
 game_state = "menu"
@@ -175,6 +201,7 @@ clock = pygame.time.Clock()
 
 level_2 = False
 level_3 = False
+is_muted = False
 current_level_text = ""
 power_up = None
 
@@ -215,6 +242,33 @@ while running:
             if game_state == "level_up" and continue_button.is_clicked(event.pos):
                 game_state = "playing"
 
+
+            if game_state == "playing" and pause_button.is_clicked(event.pos):
+                pause_button.image = pygame.image.load("Assets/return.png")
+                pause_button.image = pygame.transform.scale(pause_button.image, (30,30))
+                game_state = "paused"
+
+            elif game_state == "paused" and pause_button.is_clicked(event.pos):
+                pause_button.image = pygame.image.load("Assets/pause.png")
+                pause_button.image = pygame.transform.scale(pause_button.image, (30,30))
+                game_state = "playing"
+             
+            if (game_state == "playing" or game_state == "paused" or game_state == "ending") and not is_muted and sound_button.is_clicked(event.pos):
+                sound.mute()
+                sound_button.image = pygame.image.load("Assets/musicOff.png")
+                sound_button.image = pygame.transform.scale(sound_button.image, (30,30))
+                is_muted = True
+            elif (game_state == "playing" or game_state == "paused" or game_state == "ending") and is_muted and sound_button.is_clicked(event.pos):
+                sound.unmute()
+                sound_button.image = pygame.image.load("Assets/musicOn.png")
+                sound_button.image = pygame.transform.scale(sound_button.image, (30,30))
+                is_muted = False
+                
+
+
+            
+
+
     keys = pygame.key.get_pressed()
 
     if keys[pygame.K_SPACE]:
@@ -232,6 +286,13 @@ while running:
         quit_button.draw(screen)
 
 
+    if game_state == "paused":
+        pause_name = menu_font.render("Game Paused!", True, (255,255,255))
+        pause_name_rect = pause_name.get_rect(center = (200,300))
+        screen.blit(pause_name, pause_name_rect)
+        pause_button.draw(screen)
+        sound_button.draw(screen)
+
 
     if game_state == "playing":
         
@@ -248,8 +309,10 @@ while running:
             game_state = "level_up"
             level_3 = True
             current_level_text = "Level 3!"
-        lives.draw(screen)
 
+        lives.draw(screen)
+        pause_button.draw(screen)   
+        sound_button.draw(screen)
 
         if villan.move():
             lives.lose_life()
@@ -330,7 +393,7 @@ while running:
 
         play_again_button.draw(screen)  
         back_to_menu.draw(screen)
-
+        sound_button.draw(screen)
 
 
     pygame.display.update()
