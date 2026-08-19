@@ -28,10 +28,10 @@ class Player:
     def move(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
-            self.x -= 10
+            self.x -= 12
         
         if keys[pygame.K_RIGHT]:
-            self.x += 10
+            self.x += 12
         
         if self.x < 0:
             self.x = 0
@@ -44,7 +44,7 @@ class Villan:
 
         self.x = random.randint(0,340)
         self.y = 0
-        self.speed = 1
+        self.speed = 0.5
     def move(self):
         self.y += self.speed
         
@@ -62,6 +62,9 @@ class Laser:
         self.x = 0
         self.y = 600
 
+        self.fire_image = pygame.image.load("Assets/ebullet2.png")
+        self.fire_image = pygame.transform.scale(self.fire_image, (15,35))
+        
         self.fire_sound = pygame.mixer.Sound("Assets/piw.wav")
         self.state = "ready"
 
@@ -76,10 +79,14 @@ class Laser:
     def update(self,screen):
         if self.state == "fire":
             self.y -= 20
-            pygame.draw.rect(screen, (255,255,0), (self.x , self.y , 10, 10))
+            screen.blit(self.fire_image, (self.x, self.y))
             if self.y < 0:
                 self.y = 600
                 self.state = "ready"
+
+
+
+
 class Score:
     def __init__(self):
         self.value = 0
@@ -91,6 +98,44 @@ class Score:
     def draw(self,screen):
         score_text = self.font.render("Points: " + str(self.value), True, (255,255,255))
         screen.blit(score_text, (10,10))
+
+class Lives:
+    def __init__(self):
+        self.value = 3
+        self.font = pygame.font.SysFont("Arial", 24)
+
+    def lose_life(self):
+        self.value -= 1
+
+    def draw(self,screen):
+        lives_text = self.font.render("Lives: " + str(self.value), True, (255,255,255))
+        screen.blit(lives_text, (10,40))
+
+class PowerUps:
+    def __init__(self):
+            self.x = random.randint(0,340)
+            self.y = 0
+            self.speed = 2
+            self.type = random.choice(("health", "slow"))
+
+            if self.type == "health":
+                self.image = pygame.image.load("Assets/hearth.png")
+                self.image = pygame.transform.scale(self.image, (40,40))
+            else:
+                self.image = pygame.image.load("Assets/Hourglass.png")
+                self.image = pygame.transform.scale(self.image, (40,40))
+
+    def move(self):
+        self.y += self.speed
+
+
+        if self.y > 700:
+            return True
+        return False
+    
+    
+    def draw(self,screen):
+        screen.blit(self.image, (self.x, self.y))
 
 class Menu():
     def __init__(self, x,y ,width,height,text):
@@ -112,7 +157,7 @@ player = Player()
 villan = Villan()
 laser = Laser()
 score = Score()
-
+lives = Lives()
 
 menu_font = pygame.font.SysFont("impact", 50)
 title_center_pos = (200, 150)
@@ -121,12 +166,17 @@ start_button = Menu(120, 300, 150, 50 , "Start")
 quit_button = Menu(120, 400, 150, 50, "Quit")
 play_again_button = Menu(120, 500, 150, 50 , "Play Again")
 back_to_menu = Menu(120, 600, 150, 50, "Back To Menu")
-
+continue_button = Menu(120, 400, 150, 50 , "Continue")
 
 game_over_font = pygame.font.SysFont("impact", 50)
 game_state = "menu"
 
 clock = pygame.time.Clock()
+
+level_2 = False
+level_3 = False
+current_level_text = ""
+power_up = None
 
 
 while running:
@@ -140,6 +190,9 @@ while running:
                 villan = Villan()
                 laser = Laser()
                 score = Score()
+                lives = Lives()
+                level_2 = False
+                level_3 = False
                 game_state = "playing"
                 
             if game_state == "menu" and quit_button.is_clicked(event.pos):
@@ -151,11 +204,16 @@ while running:
                 villan = Villan()
                 laser = Laser()
                 score = Score()
+                lives = Lives()
+                level_2 = False
+                level_3 = False
                 game_state = "playing"
 
             if game_state == "ending" and back_to_menu.is_clicked(event.pos):
                 game_state = "menu"
 
+            if game_state == "level_up" and continue_button.is_clicked(event.pos):
+                game_state = "playing"
 
     keys = pygame.key.get_pressed()
 
@@ -182,23 +240,73 @@ while running:
         villan.draw(screen)
         laser.update(screen)
         score.draw(screen)
+        if score.value >= 20 and not level_2:
+            game_state = "level_up"
+            level_2 = True
+            current_level_text = "Level 2!"
+        elif score.value >= 40 and not level_3:
+            game_state = "level_up"
+            level_3 = True
+            current_level_text = "Level 3!"
+        lives.draw(screen)
+
 
         if villan.move():
+            lives.lose_life()
+            villan.y = 0
+
+        if lives.value == 0:
             game_state = "ending"
 
+        if power_up is not None:
+            power_up.draw(screen)
+            if power_up.move():
+                power_up = None
 
+
+        player_rect = pygame.Rect(player.x,player.y, 60, 60)        
         villan_rect= pygame.Rect(villan.x, villan.y, 60,60)
         laser_rect = pygame.Rect(laser.x, laser.y, 10, 10)
 
 
+        if power_up is not None:
+            power_up_rect = pygame.Rect(power_up.x,power_up.y, 40,40)
+            if player_rect.colliderect(power_up_rect):
+                if power_up.type == "health":
+                    lives.value += 1
+                else:
+                    villan.speed = villan.speed / 2
+                power_up = None
+        
+
         if laser.state == "fire" and villan_rect.colliderect(laser_rect):
             villan.x = random.randint(0,340)
             villan.y = 0
-            villan.speed += 0.3
+            if score.value >= 20:
+                villan.speed += 0.4
+            else:
+                villan.speed += 0.2
+
             laser.y = 600
             laser.state = "ready" 
             score.add_point()
-            
+            if power_up is None and random.random() < 0.3:
+                power_up = PowerUps()
+                if score.value >= 20:
+                    power_up.speed += 2
+
+    if game_state == "level_up":
+        surface = pygame.Surface((400, 700), pygame.SRCALPHA)
+        surface.fill((0,0,0,180))
+        screen.blit(surface,(0,0))
+
+        level_up_text = game_over_font.render(current_level_text, True, (0,255,100))
+        level_up_rect = level_up_text.get_rect(center = (200,300))
+        screen.blit(level_up_text,level_up_rect)
+
+        continue_button.draw(screen)
+
+   
         
     if game_state == "ending":
         surface = pygame.Surface((400, 700), pygame.SRCALPHA)
