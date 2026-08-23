@@ -93,7 +93,7 @@ class Villan:
         self.x = random.randint(0,340)
         self.y = 0
         self.speed = 0.5
-        
+
     def move(self):
         if self.state == "waiting":
             self.check_respawn()
@@ -549,6 +549,9 @@ while running:
 
 
     if game_state == "shop":
+        shop_name = menu_font.render("Shop", True, (255,255,255))
+        shop_name_rect = shop_name.get_rect(center = title_center_pos)
+        screen.blit(shop_name,shop_name_rect)
 
         ship_button.draw(screen)
         power_ups_button.draw(screen)
@@ -557,9 +560,9 @@ while running:
 
 
     if game_state == "shop_power_ups":
-        shop_name = shop_font.render(str(shop_powers[power_index][1]) + " - " + str(shop_powers[power_index][2]) + " coins", True, (255,255,255))
-        shop_text_rect = shop_name.get_rect(center = title_center_pos)
-        screen.blit(shop_name, shop_text_rect)
+        shop_name_power = shop_font.render(str(shop_powers[power_index][1]) + " - " + str(shop_powers[power_index][2]) + " coins", True, (255,255,255))
+        shop_power_text_rect = shop_name_power.get_rect(center = title_center_pos)
+        screen.blit(shop_name_power, shop_power_text_rect)
         
 
         power_preview = pygame.image.load(resource_path(shop_powers[power_index][0]))
