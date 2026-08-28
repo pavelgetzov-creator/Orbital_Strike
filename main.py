@@ -24,7 +24,13 @@ def load_data():
         with open(save_path(), "r", encoding="utf-8") as file:
             return json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"high_score": 0, "coins": 0, "unlocked_ships": ["Assets/ship_b.png"]}
+        return {
+            "high_score": 0, 
+            "coins": 0, 
+            "unlocked_ships": ["Assets/ship_b.png"],
+            "bonus_lives": 0,
+            "shop_slow": 0
+            }
 
 
 def save_data(data):
@@ -33,8 +39,12 @@ def save_data(data):
 
 
 game_data = load_data()
+game_data["coins"] = game_data.get("coins", 0)
+game_data["high_score"] = game_data.get("high_score", 0)
 game_data["unlocked_ships"] = game_data.get("unlocked_ships", ["Assets/ship_b.png"])
 game_data["bonus_lives"] = game_data.get("bonus_lives", 0)
+game_data["shop_slow"] = game_data.get("shop_slow", 0)
+
 
 screen = pygame.display.set_mode((400, 700))
 pygame.display.set_caption("Orbital Strike")
@@ -44,11 +54,12 @@ background = pygame.transform.scale(background, (400,700))
 running = True
 
 shop_ships = [
-    ("Assets/ship_b.png", "Basic Ship", 0),
-    ("Assets/ship_0.png", "Advanced Ship", 100),
-    ("Assets/ship_1.png", "Fighter Ship", 200),
-    ("Assets/ship_2.png", "Stealth Ship", 300),
-    ("Assets/ship_3.png", "Interceptor Ship", 400),   
+    #        Assets,           Name,     Price, Health, SlowPotion
+    ("Assets/ship_b.png", "Basic Ship",    0,      0,       0),
+    ("Assets/ship_0.png", "Advanced Ship", 100,    1,       0),
+    ("Assets/ship_1.png", "Fighter Ship",  200,    1 ,      1),
+    ("Assets/ship_2.png", "Stealth Ship",  300,    2,       1),
+    ("Assets/ship_3.png", "Interceptor Ship",400,  3,       2),   
 ]
 
 shop_index = 0
@@ -56,6 +67,7 @@ selected_ship = shop_ships[shop_index][0]
 
 shop_powers = [
     ("Assets/hearth.png", "Extra Life", 50, "health"),
+    ("Assets/Hourglass.png", "Slow Potion", 150, "shop_slow")
 ]
 
 power_index = 0
@@ -84,15 +96,27 @@ class Player:
         elif self.x > 340:
             self.x = 340
 class Villan:
-    def __init__(self):
-        self.image = pygame.image.load(resource_path("Assets/ship_a.png"))
-        self.image = pygame.transform.scale(self.image, (60,60))
+    def __init__(self, tough = False):
         self.state = "active"
         self.respawn_time = 0
+        self.tough = tough
 
         self.x = random.randint(0,340)
         self.y = 0
         self.speed = 0.5
+
+        if tough:
+            self.health = 2
+        else:
+            self.health = 1
+
+        if tough:
+            self.image = pygame.image.load(resource_path("Assets/ship_a2.png"))
+            self.image = pygame.transform.scale(self.image, (60,60))
+        else:
+            self.image = pygame.image.load(resource_path("Assets/ship_a.png"))
+            self.image = pygame.transform.scale(self.image, (60,60))
+
 
     def move(self):
         if self.state == "waiting":
@@ -152,6 +176,8 @@ class Laser:
 class Score:
     def __init__(self):
         self.value = 0
+        self.x = 10
+        self.y = 10
         self.font = pygame.font.SysFont("Arial", 24)
 
     def add_point(self):
@@ -159,7 +185,7 @@ class Score:
 
     def draw(self,screen):
         score_text = self.font.render("Points: " + str(self.value), True, (255,255,255))
-        screen.blit(score_text, (10,10))
+        screen.blit(score_text, (self.x, self.y))
 
 class Lives:
     def __init__(self, starting_value=1):
@@ -252,6 +278,20 @@ class PowerUps:
     def draw(self,screen):
         screen.blit(self.image, (self.x, self.y))
 
+class SlowPotion:
+    def __init__(self, starting_value = 0):
+        self.value = starting_value
+        self.x = 10
+        self.y = 130
+        self.font = pygame.font.SysFont("Arial", 24)
+        
+
+    def draw(self,screen):
+        slow_text = self.font.render("Slow Potion:" + str(self.value), True, (255,255,255))
+        screen.blit(slow_text, (self.x,self.y))
+
+
+
 class Menu():
     def __init__(self, x,y ,width,height,text, image_path = None):
         self.rect = pygame.Rect(x, y , width, height)
@@ -298,11 +338,10 @@ player = Player()
 villans = [Villan()]
 laser = Laser()
 score = Score()
-lives = Lives(1 + game_data["bonus_lives"])
-game_data["bonus_lives"] = 0
-save_data(game_data)
+lives = Lives()
 coins = Coins(game_data["coins"])
 high_score = HighScore()
+slow_potion = SlowPotion(game_data["shop_slow"])
 
 start_button = Menu(120, 300, 150, 50 , "Start")
 shop_button = Menu(120, 400, 150, 50, "Shop")
@@ -310,10 +349,10 @@ arrow_left_button = Menu(30, 280, 50, 50, "", resource_path("Assets/arrowLeft.pn
 arrow_right_button = Menu(320, 280, 50, 50, "", resource_path("Assets/arrowRight.png"))
 buy_button = Menu(150, 530, 100, 50, "Buy")
 quit_button = Menu(120, 600, 150, 50, "Quit")
-free_play_button = Menu(120, 450, 150, 50, "Free Mode")
-levels_button = Menu(120, 350, 150, 50, "Level Mode")
+free_play_button = Menu(125, 450, 150, 50, "Free Mode")
+levels_button = Menu(125, 350, 150, 50, "Level Mode")
 play_again_button = Menu(125, 500, 150, 50 , "Play Again")
-back_to_menu = Menu(120, 600, 150, 50, "Back To Menu")
+back_to_menu = Menu(125, 600, 150, 50, "Back To Menu")
 pause_button = Menu(350,25, 30, 30, "", resource_path("Assets/pause.png") )
 sound_button = Menu(310, 25, 30, 30, "", resource_path("Assets/musicOn.png"))
 power_ups_button = Menu(120, 400, 150, 50, "Power ups")
@@ -334,7 +373,11 @@ clock = pygame.time.Clock()
 level_2 = False
 level_3 = False
 level_4 = False
+level_5 = False
+level_6 = False
 level_finished = False
+free_play_level_2 = False
+free_play_level_3 = False
 is_muted = False
 current_level_text = ""
 power_up = None
@@ -345,7 +388,12 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+            if slow_potion.value > 0:
+                for v in villans:
+                    v.speed = v.speed / 2
+                slow_potion.value -= 1 
+
         if event.type== pygame.MOUSEBUTTONDOWN:
 
             if game_state == "menu" and start_button.is_clicked(event.pos):
@@ -363,14 +411,27 @@ while running:
                 villans = [Villan()]
                 laser = Laser()
                 score = Score()
-                lives = Lives(1 + game_data["bonus_lives"])
+
+                ship_bonus_lives = 0
+                ship_bonus_slow = 0
+
+                for ship in shop_ships:
+                    if ship[0] == selected_ship:
+                        ship_bonus_lives = ship[3]
+                        ship_bonus_slow = ship[4]
+                        break
+                lives = Lives(1 + game_data["bonus_lives"] + ship_bonus_lives)
+                slow_potion = SlowPotion(game_data["shop_slow"]+ ship_bonus_slow)
                 game_data["bonus_lives"] = 0
+                game_data["shop_slow"] = 0
                 save_data(game_data)
                 coins = Coins(game_data["coins"])
                 high_score = HighScore()
                 level_2 = False
                 level_3 = False
                 level_4 = False
+                level_5 = False
+                level_6 = False
                 level_finished = False
                 game_state = "playing"
                 game_mode = "level_mode"
@@ -382,8 +443,20 @@ while running:
                 villans = [Villan()]
                 laser = Laser()
                 score = Score()
-                lives = Lives(1 + game_data["bonus_lives"])
+                free_play_level_2 = False
+                free_play_level_3 = False
+                ship_bonus_lives = 0
+                ship_bonus_slow = 0
+
+                for ship in shop_ships:
+                    if ship[0] == selected_ship:
+                        ship_bonus_lives = ship[3]
+                        ship_bonus_slow = ship[4]
+                        break
+                lives = Lives(1 + game_data["bonus_lives"] + ship_bonus_lives)
+                slow_potion = SlowPotion(game_data["shop_slow"]+ ship_bonus_slow)
                 game_data["bonus_lives"] = 0
+                game_data["shop_slow"] = 0
                 save_data(game_data)
                 coins = Coins(game_data["coins"])
                 high_score = HighScore()
@@ -408,11 +481,11 @@ while running:
                 game_state = "shop"
 
             elif game_state == "shop_power_ups" and arrow_left_button.is_clicked(event.pos):
-                shop_index = (shop_index - 1) % len(shop_ships)
+                power_index = (power_index - 1) % len(shop_powers)
 
                 
             elif game_state == "shop_power_ups" and arrow_right_button.is_clicked(event.pos):
-                shop_index = (shop_index + 1) % len(shop_ships)
+                power_index = (power_index + 1) % len(shop_powers)
             
 
             elif game_state == "shop_ships" and back_to_shop.is_clicked(event.pos):
@@ -449,6 +522,8 @@ while running:
 
                     if power_type == "health":
                         game_data["bonus_lives"] += 1
+                    elif power_type == "shop_slow":
+                        game_data["shop_slow"] +=1
 
                     save_data(game_data)
 
@@ -458,14 +533,27 @@ while running:
                 villans = [Villan()]
                 laser = Laser()
                 score = Score()
-                lives = Lives(1 + game_data["bonus_lives"])
+                ship_bonus_lives = 0
+                ship_bonus_slow = 0
+
+                for ship in shop_ships:
+                    if ship[0] == selected_ship:
+                        ship_bonus_lives = ship[3]
+                        ship_bonus_slow = ship[4]
+                        break
+                lives = Lives(1 + game_data["bonus_lives"] + ship_bonus_lives)
+                slow_potion = SlowPotion(game_data["shop_slow"]+ ship_bonus_slow)
+
                 game_data["bonus_lives"] = 0
+                game_data["shop_slow"] = 0
                 save_data(game_data)
                 coins = Coins(game_data["coins"])
                 high_score = HighScore()
                 level_2 = False
                 level_3 = False
                 level_4 = False
+                level_5 = False
+                level_6 = False
                 level_finished = False
                 game_state = "playing"
                 power_up = None
@@ -516,12 +604,15 @@ while running:
     else:
         sound_button.rect = pygame.Rect(350, 25, 30, 30)
 
+  
+
     if game_state == "shop_ships" or game_state == "shop_power_ups":
         coins.x = 10
         coins.y = 25
     else:
         coins.x = 10
         coins.y = 70
+
 
     screen.blit(background, (0,0))
 
@@ -618,6 +709,7 @@ while running:
 
 
     if game_state == "playing":
+
         
         player.move()
         player.draw(screen)
@@ -625,29 +717,68 @@ while running:
             v.draw(screen)
         laser.update(screen)
         score.draw(screen)
+        slow_potion.draw(screen)
 
         if game_mode == "level_mode" and score.value >= 30 and not level_2:
             game_state = "level_up"
             level_up_start_time = pygame.time.get_ticks()
             level_2 = True
-            current_level_text = "Level 2!"
+            current_level_text = "Wave 2!"
+
         elif game_mode == "level_mode" and score.value >= 60 and not level_3:
             game_state = "level_up"
             level_up_start_time = pygame.time.get_ticks()
             level_3 = True
-            current_level_text = "Level 3!"
-            villans.append(Villan())
+            current_level_text = "Wave 3!"
+            villans.append(Villan(tough= True))
             for v in villans:
                 v.speed = 6
+
         elif game_mode == "level_mode" and score.value >= 90 and not level_4:
             game_state = "level_up"
             level_up_start_time = pygame.time.get_ticks()
             level_4 = True
-            current_level_text = "Level 4!"
-        elif game_mode == "level_mode" and score.value >= 120 and not level_finished:
+            current_level_text = "Wave 4!" 
+            villans[0].tough = True
+            villans[0].health = 2
+
+            villans[0].image = pygame.image.load(resource_path("Assets/ship_a2.png"))
+            villans[0].image = pygame.transform.scale(villans[0].image, (60,60))
+
+        elif game_mode == "level_mode" and score.value >= 120 and not level_5:
+            game_state = "level_up"
+            level_up_start_time = pygame.time.get_ticks()
+            level_5 = True
+            current_level_text = "Wave 5"
+            villans.append(Villan(tough= False))
+            for v in villans:
+                v.speed = 4
+
+        elif game_mode == "level_mode" and score.value >= 150 and not level_6:
+            game_state = "level_up"
+            level_up_start_time = pygame.time.get_ticks()
+            level_6 = True
+            current_level_text = "Wave 6"
+            villans.append(Villan(tough= False))
+            for v in villans:
+                v.speed = 5
+
+        elif game_mode == "level_mode" and score.value >= 200 and not level_finished:
             game_state = "level_complete"
             level_finished = True
             current_level_text = ["You successfully", "finished all levels!"]
+
+        if game_mode == "free_play_mode" and score.value >= 50 and not free_play_level_2:
+            free_play_level_2 = True
+            villans.append(Villan(tough= False))
+            for v in villans:
+                v.speed = 5
+        elif game_mode == "free_play_mode" and score.value >= 150 and not free_play_level_3:
+            free_play_level_3 = True
+            villans.append(Villan(tough= True))
+            for v in villans:
+                v.speed = 5
+
 
         
         coins.draw(screen)
@@ -655,6 +786,7 @@ while running:
         high_score.draw(screen)
         pause_button.draw(screen)   
         sound_button.draw(screen)
+
 
         for v in villans:
             if v.move():
@@ -705,28 +837,39 @@ while running:
 
 
 
+
         for v in villans:
             v_rect= pygame.Rect(v.x, v.y, 60,60)
 
             if v.state == "active" and laser.state == "fire" and v_rect.colliderect(laser_rect):
-                if len(villans) > 1:
-                    v.state = "waiting"
-                    v.respawn_time = pygame.time.get_ticks()
-                else:
-                    v.x = random.randint(0,340)
-                    v.y = 0
-
-                if score.value >= 30:
-                    v.speed += 0.4
-                else:
-                    v.speed += 0.2
-
+                v.health -= 1
                 laser.y = 600
-                laser.state = "ready" 
-                score.add_point()
-                high_score.new_high_score(score.value)
+                laser.state = "ready"
 
-                if power_up is None and random.random() < 0.1:
+                if v.health <= 0:
+                    if v.tough:
+                        v.health = 2
+                    else:
+                        v.health = 1       
+
+                    if len(villans) > 1:
+                        v.state = "waiting"
+                        v.respawn_time = pygame.time.get_ticks()
+                        
+                    else:
+                        v.x = random.randint(0,340)
+                        v.y = 0
+
+                    if score.value >= 30:
+                        v.speed += 0.4
+                    else:
+                        v.speed += 0.2
+
+    
+                    score.add_point()
+                    high_score.new_high_score(score.value)
+
+                if power_up is None and random.random() < 0.2:
                     power_up = PowerUps()
                     if score.value >= 30:
                         power_up.speed += 2
@@ -782,20 +925,14 @@ while running:
         screen.blit(surface,(0,0))
 
         center_pos = (200, 300)
-        cx, cy = center_pos
 
-        offsets = [(3,3), (3,-3), (-3,3), (-3,-3), (3,0), (-3,0), (0,3), (0,-3)]
-        glow_text = game_over_font.render("GAME OVER!", True, (120,0,0))
-
-        for dx, dy in offsets:
-            glow_pos = (cx + dx, cy + dy)
-            glow_rect = glow_text.get_rect(center = glow_pos)
-            screen.blit(glow_text, glow_rect)
 
         game_over_text = game_over_font.render("GAME OVER!", True, (255,0,0))
         text_rect = game_over_text.get_rect(center = center_pos)
         screen.blit(game_over_text, text_rect)
 
+      
+        score.draw(screen)
         play_again_button.draw(screen)  
         back_to_menu.draw(screen)
         sound_button.draw(screen)
